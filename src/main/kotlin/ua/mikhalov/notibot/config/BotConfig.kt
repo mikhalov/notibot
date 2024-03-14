@@ -1,6 +1,7 @@
 package ua.mikhalov.notibot.config
 
 import com.elbekd.bot.Bot
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -8,9 +9,8 @@ import org.springframework.context.annotation.Configuration
 class BotConfig {
 
     @Bean
-    fun bot(): Bot {
-        val token = "7107473763:AAFxJrBViO4x49qGDcaRvsKzcUCptMF1LW4"
-        val bot = Bot.createPolling(token)
+    fun bot(@Value("\${telegram.api.key}") key: String): Bot {
+        val bot = Bot.createPolling(key)
         bot.start()
         return bot
     }
