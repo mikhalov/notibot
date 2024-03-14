@@ -1,15 +1,18 @@
 package ua.mikhalov.notibot.model
 
-import org.springframework.data.annotation.Id
+import org.bson.types.ObjectId
 import org.springframework.data.mongodb.core.mapping.Document
+import org.springframework.data.mongodb.core.mapping.FieldType
+import org.springframework.data.mongodb.core.mapping.MongoId
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
 @Document
 data class Noti(
-    @Id val chatId: String,
-    var state: State,
+    @MongoId(value = FieldType.OBJECT_ID) val id: ObjectId,
+    val chatId: String,
+    var notiState: NotiState,
     var notificationDateTime: LocalDateTime? = null,
     var reminderText: String? = null
 ) {
@@ -17,7 +20,7 @@ data class Noti(
         notificationDateTime = if (notificationDateTime == null) {
             LocalDateTime.of(date, LocalTime.MIN)
         } else {
-            LocalDateTime.of(date, notificationDateTime!!.toLocalTime())
+            LocalDateTime.of(date, notificationDateTime!!.toLocalTime()).withSecond(0)
         }
     }
 
@@ -25,16 +28,16 @@ data class Noti(
         notificationDateTime = if (notificationDateTime == null) {
             LocalDateTime.of(LocalDate.now(), time)
         } else {
-            LocalDateTime.of(notificationDateTime!!.toLocalDate(), time)
+            LocalDateTime.of(notificationDateTime!!.toLocalDate(), time).withSecond(0)
         }
     }
 }
 
-enum class State {
-    AWAITING_NOTI_SELECTION,
+enum class NotiState {
     AWAITING_DATE_SELECTION,
     AWAITING_TIME_INPUT,
     AWAITING_REMINDER_INPUT,
     AWAITING_CONFIRMATION,
-    COMPLETED
+    COMPLETED,
+    SENT
 }
