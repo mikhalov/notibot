@@ -11,6 +11,7 @@ class BotConfig {
     fun bot(): Bot {
         val token = "7107473763:AAFxJrBViO4x49qGDcaRvsKzcUCptMF1LW4"
         val bot = Bot.createPolling(token)
+        bot.start()
         return bot
     }
 }
