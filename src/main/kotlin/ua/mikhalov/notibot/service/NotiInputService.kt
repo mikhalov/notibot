@@ -3,6 +3,8 @@ package ua.mikhalov.notibot.service
 import com.elbekd.bot.Bot
 import com.elbekd.bot.model.ChatId
 import com.elbekd.bot.types.*
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -29,18 +31,20 @@ class NotiInputService(
 ) {
 
     @Transactional
-    suspend fun onCreate(chatId: ChatId) {
+    suspend fun onCreate(chatId: ChatId) = coroutineScope {
         val notiId = ObjectId.get()
-        userService.updateSession(chatId, NotiInputSession(notiId))
         val now = LocalDate.now()
         val inlineKeyboardMarkup = Keyboards.Calendar.create(now)
-        sendMessageAndRecord(chatId, "Коли нагадати?", replyMarkup = Keyboards.NotiCreation.keyboard)
-        sendMessageAndRecord(
-            chatId = chatId,
-            text = now.formatForCalendar(),
-            replyMarkup = inlineKeyboardMarkup
-        )
-        notiService.save(Noti(notiId, chatId.toString(), NotiState.AWAITING_DATE_SELECTION))
+        launch { userService.updateSession(chatId, NotiInputSession(notiId)) }
+        launch {
+            sendMessageAndRecord(chatId, "Коли нагадати?", replyMarkup = Keyboards.NotiCreation.keyboard)
+            sendMessageAndRecord(
+                chatId = chatId,
+                text = now.formatForCalendar(),
+                replyMarkup = inlineKeyboardMarkup
+            )
+        }
+        launch { notiService.save(Noti(notiId, chatId.toString(), NotiState.AWAITING_DATE_SELECTION)) }
     }
 
     @Transactional
@@ -55,7 +59,7 @@ class NotiInputService(
         when (noti.notiState) {
             NotiState.AWAITING_TIME_INPUT -> processTimeInput(noti, msg)
             NotiState.AWAITING_REMINDER_INPUT -> processReminderInput(noti, msg)
-            else -> sendMessageAndRecord(chatId, text = "Помилка виконання, почніть з початку")
+            else -> somethingGoneWrong(chatId)
         }
     }
 
@@ -66,19 +70,22 @@ class NotiInputService(
         when (noti.notiState) {
             NotiState.AWAITING_DATE_SELECTION -> processDateSelectionCallback(callback, noti)
             NotiState.AWAITING_CONFIRMATION -> confirmNoti(callback, noti)
-            else -> sendMessageAndRecord(chatId, text = "Помилка виконання, почніть з початку")
+            else -> somethingGoneWrong(chatId)
         }
     }
 
     private suspend fun confirmNoti(callback: CallbackQuery, noti: Noti) {
-        val data = callback.data!!
-        when {
-            data.startsWith("confirm:") -> {
-                notiService.updateNoti(noti, notiState = NotiState.COMPLETED)
-                val chatId = callback.getChatId()
-                clearSessionAndSetMainMenuState(chatId)
-            }
-        }
+        callback.data?.let {
+            if (it.startsWith("confirm:")) confirmAndClear(noti, callback) else somethingGoneWrong(callback.getChatId())
+        } ?: somethingGoneWrong(callback.getChatId())
+    }
+
+    private suspend fun NotiInputService.somethingGoneWrong(chatId: ChatId) =
+        sendMessageAndRecord(chatId, "Щось пішло не так. /start")
+
+    private suspend fun confirmAndClear(noti: Noti, callback: CallbackQuery) = coroutineScope {
+        launch { notiService.updateNoti(noti, notiState = NotiState.COMPLETED) }
+        launch { clearSessionAndSetMainMenuState(callback.getChatId()) }
     }
 
     private suspend fun clearSessionAndSetMainMenuState(chatId: ChatId) {
@@ -96,17 +103,7 @@ class NotiInputService(
         val chatId = callback.getChatId()
         val data = callback.data!!
         when {
-            data.startsWith("date:") -> {
-                val selectedLocalDate =
-                    LocalDate.parse(data.removePrefix("date:"), DateTimeFormatter.ISO_LOCAL_DATE)
-                sendMessageAndRecord(
-                    chatId,
-                    "${selectedLocalDate.formatToUkrainian()}\nНа яку годину? У форматі: ГГ ХХ, наприклад, 16 20"
-                )
-                val messageId = callback.message!!.messageId
-                deleteMessage(chatId, messageId)
-                notiService.updateNoti(noti, NotiState.AWAITING_TIME_INPUT, selectedLocalDate)
-            }
+            data.startsWith("date:") -> processDateSelected(callback, noti)
 
             data.startsWith("nextMonth:") -> {
                 val date = LocalDate.parse(data.removePrefix("nextMonth:"))
@@ -134,6 +131,23 @@ class NotiInputService(
         }
     }
 
+    private suspend fun processDateSelected(
+        callback: CallbackQuery,
+        noti: Noti
+    ) = coroutineScope {
+        val chatId = callback.getChatId()
+        callback.data?.let { LocalDate.parse(it.removePrefix("date:"), DateTimeFormatter.ISO_LOCAL_DATE) }?.let {
+            launch {
+                sendMessageAndRecord(
+                    chatId,
+                    "${it.formatToUkrainian()}\nНа яку годину? У форматі: ГГ ХХ, наприклад, 16 20"
+                )
+            }
+            launch { deleteMessage(chatId, callback.message!!.messageId) }
+            launch { notiService.updateNoti(noti, NotiState.AWAITING_TIME_INPUT, it) }
+        }
+    }
+
     private suspend fun deleteMessage(chatId: ChatId, messageId: Long) {
         bot.deleteMessage(chatId, messageId)
         val user = userService.findById(chatId)
@@ -144,26 +158,42 @@ class NotiInputService(
 
     private suspend fun processTimeInput(noti: Noti, msg: Message) {
         val chatId = msg.getChatId()
-        val text = msg.text
-        if (text == null) {
-            sendMessageAndRecord(chatId, "Очікуються час для ноті.")
-            return
+        val text = msg.text.orEmpty().trim()
+        when {
+            text.isEmpty() -> sendMessageAndRecord(chatId, "Очікуються час для ноті.")
+            !text.isValidTimeFormat() -> sendMessageAndRecord(
+                chatId,
+                "Спробуйте ще раз у форматі: ГГ ХХ, наприклад, 16 20"
+            )
+
+            else -> {
+                val time = text.toLocalTime()
+                val currentDate = noti.notificationDateTime!!.toLocalDate()
+                if (!time.isTimeInFutureForDate(currentDate)) {
+                    sendMessageAndRecord(chatId, "Час не може бути в минулому. Введіть будь ласка майбутній час.")
+                    return
+                }
+                processValidTime(noti, time)
+            }
         }
-        val trimmedText = text.trim()
-        if (!trimmedText.matches("^([01]?[0-9]|2[0-3]) [0-5][0-9]$".toRegex())) {
-            sendMessageAndRecord(chatId, "Спробуйте ще раз у форматі: ГГ ММ, наприклад, 16 20")
-            return
-        }
-        val time = trimmedText.toLocalTime()
-        val currentDate = noti.notificationDateTime!!.toLocalDate()
-        if (!currentDate.isAfter(LocalDate.now()) && time.isBefore(LocalTime.now())) {
-            sendMessageAndRecord(chatId, "Час не може бути в минулому. Введіть будь ласка майбутній час.")
-            return
-        }
-        notiService.updateNoti(noti, NotiState.AWAITING_REMINDER_INPUT, time = time)
-        sendMessageAndRecord(chatId, "**Введіть нагадування**", parseMode = ParseMode.MarkdownV2)
     }
 
+    private suspend fun processValidTime(noti: Noti, time: LocalTime) = coroutineScope {
+        launch { notiService.updateNoti(noti, NotiState.AWAITING_REMINDER_INPUT, time = time) }
+        launch {
+            sendMessageAndRecord(
+                ChatId.StringId(noti.chatId),
+                "**Введіть нагадування**",
+                parseMode = ParseMode.MarkdownV2
+            )
+        }
+    }
+
+    private fun String.isValidTimeFormat() = matches("^([01]?[0-9]|2[0-3]) [0-5][0-9]$".toRegex())
+
+    private fun LocalTime.isTimeInFutureForDate(date: LocalDate): Boolean {
+        return date.isAfter(LocalDate.now()) || !isBefore(LocalTime.now())
+    }
 
     private suspend fun processReminderInput(noti: Noti, msg: Message) {
         val chatId = msg.getChatId()

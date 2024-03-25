@@ -30,4 +30,4 @@ fun LocalDate.formatForCalendar(): String {
 
 fun Message.getChatId() = chat.id.toChatId()
 
-fun CallbackQuery.getChatId() = message!!.getChatId()
+fun CallbackQuery.getChatId() = message?.getChatId() ?: throw IllegalArgumentException()
