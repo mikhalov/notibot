@@ -35,6 +35,8 @@ dependencies {
     implementation("com.github.elbekD:kt-telegram-bot:2.2.0")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.projectreactor:reactor-test")
+    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }
 
 dependencyManagement {
