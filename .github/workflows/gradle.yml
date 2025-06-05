@@ -45,8 +45,9 @@ jobs:
             const failed = parseInt('${{ steps.summary.outputs.failed }}', 10);
             const skipped = parseInt('${{ steps.summary.outputs.skipped }}', 10);
             const passed = total - failed - skipped;
+            const totalMinusPassed = total - skipped;
             const state = failed === 0 ? 'success' : 'failure';
-            const description = `Passed ${passed}/${total} tests, Skipped ${skipped}`;
+            const description = `Passed ${passed}/${totalMinusPassed} tests, Skipped ${skipped}`;
             const target = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
