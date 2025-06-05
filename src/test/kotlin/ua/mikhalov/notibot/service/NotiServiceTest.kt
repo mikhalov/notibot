@@ -3,9 +3,14 @@ package ua.mikhalov.notibot.service
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.bson.types.ObjectId
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import ua.mikhalov.notibot.model.Noti
 import ua.mikhalov.notibot.model.NotiState
@@ -32,5 +37,35 @@ class NotiServiceTest {
         assertEquals(LocalDateTime.of(date, time), updated.notificationDateTime)
         assertEquals(reminder, updated.reminderText)
         coVerify { repository.save(noti) }
+    }
+
+    @Test
+    fun `findNotiById returns noti`() = runTest {
+        val noti = Noti(ObjectId.get(), "1", NotiState.AWAITING_DATE_SELECTION)
+        coEvery { repository.findById(noti.id) } returns noti
+
+        val result = service.findNotiById(noti.id)
+
+        assertEquals(noti, result)
+    }
+
+    @Test
+    fun `findNotiById throws`() = runTest {
+        val id = ObjectId.get()
+        coEvery { repository.findById(id) } returns null
+
+        assertThrows(IllegalStateException::class.java) { runBlocking { service.findNotiById(id) } }
+    }
+
+    @Test
+    fun `updateAll saves flow`() = runTest {
+        val noti = Noti(ObjectId.get(), "1", NotiState.SENT)
+        val flow = flowOf(noti)
+        coEvery { repository.saveAll(any<Flow<Noti>>()) } answers { firstArg() }
+
+        val result = service.updateAll(flow).toList()
+
+        assertEquals(1, result.size)
+        coVerify { repository.saveAll(any<Flow<Noti>>()) }
     }
 }

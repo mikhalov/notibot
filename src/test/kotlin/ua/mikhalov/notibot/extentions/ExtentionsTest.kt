@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.LocalDateTime
 
 class ExtentionsTest {
     @Test
@@ -41,5 +42,21 @@ class ExtentionsTest {
         val callback = CallbackQuery(id = "1", from = mockk(), chatInstance = "", data = null, message = msg)
         val id = callback.getChatId()
         assertEquals("123", id.toString())
+    }
+
+    @Test
+    fun `formatToUkrainian for LocalDateTime`() {
+        val dateTime = LocalDateTime.of(2024, 2, 5, 14, 30)
+        val formatted = dateTime.formatToUkrainian()
+        assertTrue(formatted.contains("05"))
+        assertTrue(formatted.contains("2024"))
+        assertTrue(formatted.contains("14:30"))
+    }
+
+    @Test
+    fun `formatForCalendar returns month and year`() {
+        val date = LocalDate.of(2024, 2, 10)
+        val formatted = date.formatForCalendar()
+        assertEquals("Лютий 2024", formatted)
     }
 }
