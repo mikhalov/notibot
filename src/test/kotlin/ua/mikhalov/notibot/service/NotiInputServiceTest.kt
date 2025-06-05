@@ -36,9 +36,9 @@ class NotiInputServiceTest {
         val noti = Noti(ObjectId(), "1", NotiState.AWAITING_TIME_INPUT).apply {
             setDate(LocalDate.now())
         }
-        val timePast = LocalTime.now().minusMinutes(1)
+        val timePast = LocalTime.now().minusMinutes(1).withSecond(0).withNano(0)
         val message = mockk<Message>()
-        every { message.text } returns timePast.format(DateTimeFormatter.ofPattern("H m"))
+        every { message.text } returns timePast.format(DateTimeFormatter.ofPattern("H mm"))
 
         mockkStatic("ua.mikhalov.notibot.extentions.ExtentionsKt")
         val chatId = ChatId.IntegerId(123L)
@@ -60,10 +60,10 @@ class NotiInputServiceTest {
         val noti = Noti(ObjectId(), "1", NotiState.AWAITING_TIME_INPUT).apply {
             setDate(LocalDate.now())
         }
-        val timeFuture = LocalTime.now().plusMinutes(10)
+        val timeFuture = LocalTime.now().plusMinutes(10).withSecond(0).withNano(0)
         val expectedTime = LocalTime.of(timeFuture.hour, timeFuture.minute)
         val message = mockk<Message>()
-        every { message.text } returns timeFuture.format(DateTimeFormatter.ofPattern("H m"))
+        every { message.text } returns timeFuture.format(DateTimeFormatter.ofPattern("H mm"))
 
         mockkStatic("ua.mikhalov.notibot.extentions.ExtentionsKt")
         val chatId = ChatId.IntegerId(123L)

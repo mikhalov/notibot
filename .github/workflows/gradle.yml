@@ -18,3 +18,12 @@ jobs:
         run: chmod +x gradlew
       - name: Run tests
         run: ./gradlew test --no-daemon
+      - name: Report test summary
+        if: always()
+        run: |
+          total=$(grep -o 'tests="[0-9]*"' build/test-results/test/TEST-*.xml | grep -o '[0-9]*' | paste -sd+ - | bc)
+          failed=$(grep -o 'failures="[0-9]*"' build/test-results/test/TEST-*.xml | grep -o '[0-9]*' | paste -sd+ - | bc)
+          skipped=$(grep -o 'skipped="[0-9]*"' build/test-results/test/TEST-*.xml | grep -o '[0-9]*' | paste -sd+ - | bc)
+          echo "Total tests: $total" >> $GITHUB_STEP_SUMMARY
+          echo "Failures: $failed" >> $GITHUB_STEP_SUMMARY
+          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
