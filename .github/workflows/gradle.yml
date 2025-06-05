@@ -8,6 +8,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     permissions:
+      statuses: write
       checks: write
     steps:
       - uses: actions/checkout@v4
