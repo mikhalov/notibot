@@ -2,7 +2,7 @@ name: Coverage
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
@@ -22,16 +22,16 @@ jobs:
         id: coverage
         run: |
           python <<'PY'
-import re, pathlib, os
-xml = pathlib.Path('build/reports/jacoco/test/jacocoTestReport.xml').read_text()
-nums = re.findall(r'missed="(\d+)" covered="(\d+)"', xml)
-missed = sum(int(m) for m,_ in nums)
-covered = sum(int(c) for _,c in nums)
-coverage = 100 * covered / (missed + covered) if missed + covered > 0 else 0
-print(f"Coverage: {coverage:.2f}%")
-with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
-    fh.write(f'coverage={coverage:.2f}\n')
-PY
+          import re, pathlib, os
+          xml = pathlib.Path('build/reports/jacoco/test/jacocoTestReport.xml').read_text()
+          nums = re.findall(r'missed="(\d+)" covered="(\d+)"', xml)
+          missed = sum(int(m) for m,_ in nums)
+          covered = sum(int(c) for _,c in nums)
+          coverage = 100 * covered / (missed + covered) if missed + covered > 0 else 0
+          print(f"Coverage: {coverage:.2f}%")
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              fh.write(f'coverage={coverage:.2f}\n')
+          PY
       - name: Comment PR
         uses: peter-evans/create-or-update-comment@v4
         with:
@@ -44,10 +44,10 @@ PY
           cov=${{ steps.coverage.outputs.coverage }}
           echo "Coverage $cov%"
           python - <<EOF
-import sys, os
-cov=float(os.environ.get('COV', '0'))
-if cov < 80:
-    sys.exit(1)
-EOF
+          import sys, os
+          cov=float(os.environ.get('COV', '0'))
+          if cov < 80:
+              sys.exit(1)
+          EOF
         env:
           COV: ${{ steps.coverage.outputs.coverage }}

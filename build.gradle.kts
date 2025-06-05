@@ -53,6 +53,11 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    environment("TELEGRAM_API_KEY", "dummy")
+    environment("MONGO_USER", "user")
+    environment("MONGO_PASSWORD", "password")
+    environment("SPRING_DATA_MONGODB_URI", "mongodb://localhost")
+    environment("SPRING_DATA_MONGODB_DATABASE", "test")
 }
 
 jacoco {
