@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       statuses: write
+            const description = `Passed ${passed}/${total} tests, Skipped ${skipped}`;
       checks: write
     steps:
       - uses: actions/checkout@v4
