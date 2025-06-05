@@ -5,6 +5,7 @@ plugins {
     id("io.spring.dependency-management") version "1.1.4"
     kotlin("jvm") version "1.9.22"
     kotlin("plugin.spring") version "1.9.22"
+    jacoco
 }
 
 group = "ua.mikhalov"
@@ -28,8 +29,8 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+//    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
 //    implementation("org.springframework.ai:spring-ai-openai-spring-boot-starter")
     implementation("org.telegram:telegrambots:6.9.7.1")
     implementation("com.github.elbekD:kt-telegram-bot:2.2.0")
@@ -54,4 +55,32 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    environment("TELEGRAM_API_KEY", "dummy")
+    environment("MONGO_USER", "user")
+    environment("MONGO_PASSWORD", "password")
+    environment("SPRING_DATA_MONGODB_URI", "mongodb://localhost")
+    environment("SPRING_DATA_MONGODB_DATABASE", "test")
 }
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+tasks.jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = "0.8".toBigDecimal()
+            }
+        }
+    }
+}
+
