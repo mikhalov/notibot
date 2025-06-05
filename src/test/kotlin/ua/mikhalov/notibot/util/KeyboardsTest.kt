@@ -20,4 +20,12 @@ class KeyboardsTest {
         val lastRow = markup.inlineKeyboard.last()
         assertEquals(2, lastRow.size)
     }
+    @Test
+    fun `calendar rows contain up to seven days`() {
+        val date = LocalDate.of(2024, 1, 1)
+        val markup = Keyboards.Calendar.create(date)
+        markup.inlineKeyboard.dropLast(1).forEach { row ->
+            assert(row.size <= 7)
+        }
+    }
 }
