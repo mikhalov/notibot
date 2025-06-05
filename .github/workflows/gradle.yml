@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Run tests
+        run: ./gradlew test --no-daemon
+      - name: Report test summary
+        id: summary
+        if: always()
+        run: |
+          total=$(grep -o 'tests="[0-9]*"' build/test-results/test/TEST-*.xml | grep -o '[0-9]*' | paste -sd+ - | bc)
+          failed=$(grep -o 'failures="[0-9]*"' build/test-results/test/TEST-*.xml | grep -o '[0-9]*' | paste -sd+ - | bc)
+          skipped=$(grep -o 'skipped="[0-9]*"' build/test-results/test/TEST-*.xml | grep -o '[0-9]*' | paste -sd+ - | bc)
+          echo "Total tests: $total" >> $GITHUB_STEP_SUMMARY
+          echo "Failures: $failed" >> $GITHUB_STEP_SUMMARY
+          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          echo "total=$total" >> $GITHUB_OUTPUT
+          echo "failed=$failed" >> $GITHUB_OUTPUT
+          echo "skipped=$skipped" >> $GITHUB_OUTPUT
+
+      - name: Publish test status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const total = parseInt('${{ steps.summary.outputs.total }}', 10);
+            const failed = parseInt('${{ steps.summary.outputs.failed }}', 10);
+            const skipped = parseInt('${{ steps.summary.outputs.skipped }}', 10);
+            const passed = total - failed - skipped;
+            const state = failed === 0 ? 'success' : 'failure';
+            const description = `Passed ${passed}/${total} tests, Skipped ${skipped}`;
+            const target = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state,
+              context: 'Test Results',
+              target_url: target,
+              description
+            });
+
+
